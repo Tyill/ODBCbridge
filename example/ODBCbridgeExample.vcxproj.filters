@@ -15,34 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\app.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\mainWin.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\stdafx.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\glCanvas.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\glShader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\ODBCbrigleExample.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\app.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\mainWin.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\glCanvas.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <ClInclude Include="..\include\ODBCbridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

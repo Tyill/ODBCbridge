@@ -41,66 +41,184 @@
 
 namespace odbc {
    
-    struct dbState{
-        SQLHENV env = nullptr;
-        SQLHDBC hdb = nullptr;
-    };   
+    class Connection{
 
-    std::string _lastError;
-
-#define SQLCALL(f, errMess, ext) {                                         \
-      SQLRETURN ret = f;                                              \
-      if ((ret != SQL_SUCCESS) && (ret != SQL_SUCCESS_WITH_INFO)){    \
-        _lastError = errMess + std::string(" ret ") + to_string(ret); \
-        return ext;                                                 \
-      }                                                               \
-    }
-
-    std::string getLastError(){
-
-        return _lastError;
-    }
-    
-    dbState connect(const std::string& dbServer, const std::string& user, const std::string& password){
+    private:
+        SQLHENV _env = nullptr;
+        SQLHDBC _hDb = nullptr;
         
-        dbState st;
+        std::string _lastError;
+        
+        bool _isConnect = false;
 
-        // allocate environment handle
-        SQLCALL(SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &st.env), "connect: error environment SQLAllocHandle", dbState());
-                
-        // register version 
-        SQLCALL(SQLSetEnvAttr(st.hdb, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0), "connect: error SQLSetEnvAttr", dbState());
-               
-        // allocate connection handle
-        SQLCALL(SQLAllocHandle(SQL_HANDLE_DBC, st.env, &st.hdb), "connect: error connection SQLAllocHandle", dbState());
-                
-        // set connect timeout
-        SQLCALL(SQLSetConnectAttr(st.hdb, SQL_LOGIN_TIMEOUT, (SQLPOINTER *)5, 0), "connect: error SQLSetConnectAttr", dbState());
+    public:
 
-        // connect 
-        SQLCALL(SQLConnect(st.hdb, (SQLCHAR*)dbServer.c_str(), SQL_NTS,
-                                   (SQLCHAR*)user.c_str(), SQL_NTS,
-                                   (SQLCHAR*)password.c_str(), SQL_NTS), "connect: error SQLConnect", dbState());
-        return st;
-    }
+        Connection(const std::string& dbServer, const std::string& user, const std::string& password){
 
-    void disconnect(dbState& ioSt){
+#define SQLCALL_EXT return;  
+#define SQLCALL(ht, h, f, errMess){                                                                     \
+                 SQLRETURN ret = f;                                                                     \
+                 if ((ret != SQL_SUCCESS) && (ret != SQL_SUCCESS_WITH_INFO)){                           \
+                    char		stat[10]{0};                                                            \
+                    SQLINTEGER	err;                                                                    \
+                    SQLSMALLINT	mlen;                                                                   \
+                    char        msg[1024]{0};                                                           \
+                    SQLGetDiagRec(ht, h, 1, (SQLCHAR*)stat, &err, (SQLCHAR*)msg, 1024, &mlen);          \
+                    _lastError = errMess + std::string(" err ") + std::to_string(err) + " mess " + msg; \
+                    SQLCALL_EXT                                                                         \
+                 };                                                                                     \
+               }
 
-        if (ioSt.hdb){
-            SQLDisconnect(ioSt.hdb);
-            SQLFreeHandle(SQL_HANDLE_DBC, ioSt.hdb);
-            ioSt.hdb = nullptr;
+            // allocate environment handle
+            SQLCALL(SQL_HANDLE_ENV, _env,
+                    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &_env), "connect: environment SQLAllocHandle");
+
+            // register version 
+            SQLCALL(SQL_HANDLE_ENV, _env,
+                    SQLSetEnvAttr(_env, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0), "connect: SQLSetEnvAttr");
+
+            // allocate connection handle
+            SQLCALL(SQL_HANDLE_DBC, _hDb,
+                    SQLAllocHandle(SQL_HANDLE_DBC, _env, &_hDb), "connect: connection SQLAllocHandle");
+
+            // set connect timeout
+            SQLCALL(SQL_HANDLE_DBC, _hDb,
+                    SQLSetConnectAttr(_hDb, SQL_LOGIN_TIMEOUT, (SQLPOINTER *)5, 0), "connect: SQLSetConnectAttr");
+
+            // connect 
+            SQLCALL(SQL_HANDLE_DBC, _hDb,
+                    SQLConnect(_hDb, (SQLCHAR*)dbServer.c_str(), SQL_NTS,
+                                     (SQLCHAR*)user.c_str(), SQL_NTS,
+                                     (SQLCHAR*)password.c_str(), SQL_NTS), "connect: SQLConnect");
+         
+            _isConnect = _env && _hDb;
         }
-        if (ioSt.env){
-            SQLFreeHandle(SQL_HANDLE_ENV, ioSt.env);
-            ioSt.env = nullptr;
+
+        ~Connection(){
+
+            if (_hDb){
+                SQLDisconnect(_hDb);
+                SQLFreeHandle(SQL_HANDLE_DBC, _hDb);
+            }
+            if (_env){
+                SQLFreeHandle(SQL_HANDLE_ENV, _env);
+            }
         }
-    }
 
+        bool isConnect(){
 
+            return _isConnect;
+        }
+        
+        std::string getLastError(){
 
-#undef SQLCALL
+            return _lastError;
+        }
 
+        void setOption(SQLINTEGER optnum, const std::string& value){
+            
+            if (!_isConnect) return;
+
+            SQLCALL(SQL_HANDLE_DBC, _hDb, 
+                    SQLSetConnectAttr(_hDb, optnum, (SQLPOINTER)value.c_str(), int(value.size())), "setOption: SQLSetConnectAttr");
+        }
+
+        std::string getOption(SQLINTEGER optnum){
+
+            if (!_isConnect) return "";
+            
+            std::string value;
+            value.resize(256, 0);
+                
+            SQLINTEGER optSize = 0;
+
+#undef SQLCALL_EXT         
+#define SQLCALL_EXT return "";      
+
+            SQLCALL(SQL_HANDLE_DBC, _hDb, 
+                    SQLGetConnectAttr(_hDb, optnum, (SQLPOINTER)value.c_str(), 256, &optSize), "getOption: SQLGetConnectAttr");
+
+            if (optSize > 256){
+                value.resize(optSize, 0);
+
+                SQLCALL(SQL_HANDLE_DBC, _hDb, 
+                        SQLGetConnectAttr(_hDb, optnum, (SQLPOINTER)value.c_str(), optSize, &optSize), "getOption: SQLGetConnectAttr");
+            }
+
+            return value;
+        }
+
+        // return true - ok
+        bool query(const std::string& query, std::vector<std::vector<std::string>>& results){
+
+#undef SQLCALL_EXT         
+#define SQLCALL_EXT SQLFreeHandle(SQL_HANDLE_STMT, hStmt);  \
+                    return false;      
+
+            SQLHSTMT hStmt = nullptr;
+            if ((SQLAllocHandle(SQL_HANDLE_STMT, _hDb, &hStmt) != SQL_SUCCESS) || !hStmt){
+                _lastError = "query: error SQLAllocHandle hStmt";
+                return false;
+            }
+
+            SQLCALL(SQL_HANDLE_STMT, hStmt,
+                    SQLExecDirect(hStmt, (SQLCHAR*)query.c_str(), int(query.size())), "query: SQLExecDirect");
+           
+            SQLSMALLINT cols = 0;
+            SQLCALL(SQL_HANDLE_STMT, hStmt, 
+                    SQLNumResultCols(hStmt, &cols), "query: SQLNumResultCols");
+          
+            SQLLEN rows = 0;
+            SQLCALL(SQL_HANDLE_STMT, hStmt, 
+                    SQLRowCount(hStmt, &rows), "query: SQLRowCount");
+                  
+            if (rows == 0){
+                SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+                return true;
+            }
+
+            std::vector<std::string> colVals(cols);
+            for (int i = 0; i < cols; ++i){
+
+                std::string& cval = colVals[i];
+
+                SQLLEN  ssType;
+                SQLCALL(SQL_HANDLE_STMT, hStmt, 
+                        SQLColAttribute(hStmt,
+                                        i,
+                                        SQL_DESC_DISPLAY_SIZE,
+                                        NULL,
+                                        0,
+                                        NULL,
+                                        &ssType), "query: SQLColAttribute");
+
+                cval.resize(ssType);
+
+                SQLCALL(SQL_HANDLE_STMT, hStmt, 
+                        SQLBindCol(hStmt,
+                                   i,
+                                   SQL_C_CHAR,
+                                   (SQLPOINTER)cval.c_str(),
+                                   ssType,
+                                   &ssType), "query: SQLBindCol");
+            }
+            
+            SQLRETURN ret = SQL_SUCCESS;
+            while (ret != SQL_NO_DATA){
+                
+                ret = SQLFetch(hStmt);
+
+                results.push_back(colVals);
+            }
+                  
+            SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+
+            return true;
+  
+        }
+    };
+    
+#undef SQLCALL   
 } // namespace odbc
 
 

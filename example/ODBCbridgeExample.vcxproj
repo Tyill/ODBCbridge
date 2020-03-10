@@ -10,6 +10,12 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\ODBCbridge.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{7CD01FFD-5467-4FCA-9271-F1E06651DCFC}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
@@ -57,15 +63,17 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)lib/wxWidgets-3.1.3/include/;$(SolutionDir)lib/wxWidgets-3.1.3/include/msvc;$(SolutionDir)lib;$(SolutionDir)res/wxWidgets-3.1.3/lib/vc_x64_lib/mswud</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
       <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;glew32s.lib;glm_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
-      <IgnoreSpecificDefaultLibraries>LIBCMT.lib; MSVCRT.lib</IgnoreSpecificDefaultLibraries>
+      <IgnoreSpecificDefaultLibraries>
+      </IgnoreSpecificDefaultLibraries>
     </Link>
     <PreBuildEvent>
       <Command>
@@ -83,17 +91,19 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)lib/wxWidgets-3.1.3/include/;$(SolutionDir)lib/wxWidgets-3.1.3/include/msvc;$(SolutionDir)lib;$(SolutionDir)res/wxWidgets-3.1.3/lib/vc_x64_lib/mswu</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
       <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>opengl32.lib;glew32s.lib;glm_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
-      <IgnoreSpecificDefaultLibraries>LIBCMT.lib</IgnoreSpecificDefaultLibraries>
+      <IgnoreSpecificDefaultLibraries>
+      </IgnoreSpecificDefaultLibraries>
     </Link>
     <PreBuildEvent>
       <Command>
@@ -103,19 +113,6 @@
       <EnableDpiAwareness>true</EnableDpiAwareness>
     </Manifest>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClInclude Include="..\include\ODBCbrigleExample.h" />
-    <ClInclude Include="src\app.h" />
-    <ClInclude Include="src\glCanvas.h" />
-    <ClInclude Include="src\glShader.h" />
-    <ClInclude Include="src\mainWin.h" />
-    <ClInclude Include="src\stdafx.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="src\app.cpp" />
-    <ClCompile Include="src\glCanvas.cpp" />
-    <ClCompile Include="src\mainWin.cpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
