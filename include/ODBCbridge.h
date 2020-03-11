@@ -34,10 +34,8 @@
 #include <sqlext.h>
 
 #include <cstdint>
-#include <algorithm>
 #include <string>
 #include <vector>
-#include <map>
 
 namespace odbc {
    
@@ -53,7 +51,7 @@ namespace odbc {
 
     public:
 
-        Connection(const std::string& dbServer, const std::string& user, const std::string& password){
+        Connection(const std::string& dbServer, const std::string& user = "", const std::string& password = ""){
 
 #define SQLCALL_EXT return;  
 #define SQLCALL(ht, h, f, errMess){                                                                     \
@@ -115,67 +113,62 @@ namespace odbc {
             return _lastError;
         }
 
-        void setOption(SQLINTEGER optnum, const std::string& value){
+        template<typename T>
+        bool setOption(SQLINTEGER optnum, const T& value){
             
-            if (!_isConnect) return;
+            if (!_isConnect) return false;
 
+#undef SQLCALL_EXT         
+#define SQLCALL_EXT return false;      
+                        
             SQLCALL(SQL_HANDLE_DBC, _hDb, 
-                    SQLSetConnectAttr(_hDb, optnum, (SQLPOINTER)value.c_str(), int(value.size())), "setOption: SQLSetConnectAttr");
+                    SQLSetConnectAttr(_hDb, optnum, (SQLPOINTER)value, 0), "setOption: SQLSetConnectAttr");
+
+            return true;
         }
 
-        std::string getOption(SQLINTEGER optnum){
-
-            if (!_isConnect) return "";
+        template<typename T>
+        bool getOption(SQLINTEGER optnum, T& out){
+                        
+            if (!_isConnect) return false;
             
-            std::string value;
-            value.resize(256, 0);
-                
             SQLINTEGER optSize = 0;
 
-#undef SQLCALL_EXT         
-#define SQLCALL_EXT return "";      
-
             SQLCALL(SQL_HANDLE_DBC, _hDb, 
-                    SQLGetConnectAttr(_hDb, optnum, (SQLPOINTER)value.c_str(), 256, &optSize), "getOption: SQLGetConnectAttr");
-
-            if (optSize > 256){
-                value.resize(optSize, 0);
-
-                SQLCALL(SQL_HANDLE_DBC, _hDb, 
-                        SQLGetConnectAttr(_hDb, optnum, (SQLPOINTER)value.c_str(), optSize, &optSize), "getOption: SQLGetConnectAttr");
-            }
-
-            return value;
+                    SQLGetConnectAttr(_hDb, optnum, (SQLPOINTER)&out, 0, &optSize), "getOption: SQLGetConnectAttr");
+                        
+            return true;
         }
 
-        // return true - ok
         bool query(const std::string& query, std::vector<std::vector<std::string>>& results){
 
+            if (!_isConnect) return false;
+        
 #undef SQLCALL_EXT         
-#define SQLCALL_EXT SQLFreeHandle(SQL_HANDLE_STMT, hStmt);  \
-                    return false;      
+#define SQLCALL_EXT if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);  \
+                    return false;   
+
 
             SQLHSTMT hStmt = nullptr;
-            if ((SQLAllocHandle(SQL_HANDLE_STMT, _hDb, &hStmt) != SQL_SUCCESS) || !hStmt){
-                _lastError = "query: error SQLAllocHandle hStmt";
-                return false;
-            }
+            SQLCALL(SQL_HANDLE_DBC, _hDb,
+                    SQLAllocHandle(SQL_HANDLE_STMT, _hDb, &hStmt), "query: SQLAllocHandle");
 
             SQLCALL(SQL_HANDLE_STMT, hStmt,
                     SQLExecDirect(hStmt, (SQLCHAR*)query.c_str(), int(query.size())), "query: SQLExecDirect");
-           
-            SQLSMALLINT cols = 0;
-            SQLCALL(SQL_HANDLE_STMT, hStmt, 
-                    SQLNumResultCols(hStmt, &cols), "query: SQLNumResultCols");
-          
+                                
             SQLLEN rows = 0;
             SQLCALL(SQL_HANDLE_STMT, hStmt, 
                     SQLRowCount(hStmt, &rows), "query: SQLRowCount");
                   
-            if (rows == 0){
+            // rows affected by an UPDATE, INSERT, or DELETE
+            if (rows >= 0){
                 SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
                 return true;
             }
+
+            SQLSMALLINT cols = 0;
+            SQLCALL(SQL_HANDLE_STMT, hStmt,
+                    SQLNumResultCols(hStmt, &cols), "query: SQLNumResultCols");
 
             std::vector<std::string> colVals(cols);
             for (int i = 0; i < cols; ++i){
@@ -185,7 +178,7 @@ namespace odbc {
                 SQLLEN  ssType;
                 SQLCALL(SQL_HANDLE_STMT, hStmt, 
                         SQLColAttribute(hStmt,
-                                        i,
+                                        i + 1,
                                         SQL_DESC_DISPLAY_SIZE,
                                         NULL,
                                         0,
@@ -196,28 +189,31 @@ namespace odbc {
 
                 SQLCALL(SQL_HANDLE_STMT, hStmt, 
                         SQLBindCol(hStmt,
-                                   i,
+                                   i + 1,
                                    SQL_C_CHAR,
                                    (SQLPOINTER)cval.c_str(),
                                    ssType,
                                    &ssType), "query: SQLBindCol");
             }
             
-            SQLRETURN ret = SQL_SUCCESS;
+            if (!results.empty())
+                results.clear();
+
+            SQLRETURN ret = SQLFetch(hStmt);
             while (ret != SQL_NO_DATA){
                 
-                ret = SQLFetch(hStmt);
-
                 results.push_back(colVals);
+
+                ret = SQLFetch(hStmt);
             }
                   
             SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
 
-            return true;
-  
+            return true;  
         }
     };
     
+#undef SQLCALL_EXT  
 #undef SQLCALL   
 } // namespace odbc
 
